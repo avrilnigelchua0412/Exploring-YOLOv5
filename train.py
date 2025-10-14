@@ -615,6 +615,10 @@ def parse_opt(known=False):
     parser.add_argument("--ndjson-console", action="store_true", help="Log ndjson to console")
     parser.add_argument("--ndjson-file", action="store_true", help="Log ndjson to file")
 
+    
+    # 10/15/2025
+    parser.add_argument("--use_weighted_sampler", action="store_true", help="use ClassBalancedSampler for dynamic weight in each image for class imbalance")
+
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
 

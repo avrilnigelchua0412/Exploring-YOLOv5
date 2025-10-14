@@ -23,7 +23,7 @@ import torch.nn.functional as F
 import torchvision
 import yaml
 from PIL import ExifTags, Image, ImageOps
-from torch.utils.data import DataLoader, Dataset, dataloader, distributed
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler, dataloader, distributed
 from tqdm import tqdm
 
 from utils.augmentations import (
@@ -175,6 +175,7 @@ def create_dataloader(
     prefix="",
     shuffle=False,
     seed=0,
+    use_weighted_sampler=False
 ):
     """Creates and returns a configured DataLoader instance for loading and processing image datasets."""
     if rect and shuffle:
@@ -200,14 +201,20 @@ def create_dataloader(
     batch_size = min(batch_size, len(dataset))
     nd = torch.cuda.device_count()  # number of CUDA devices
     nw = min([os.cpu_count() // max(nd, 1), batch_size if batch_size > 1 else 0, workers])  # number of workers
-    sampler = None if rank == -1 else SmartDistributedSampler(dataset, shuffle=shuffle)
+    
+    
+    if use_weighted_sampler:
+        sampler = ClassBalancedSampler(dataset)
+    else:
+        sampler = None if rank == -1 else SmartDistributedSampler(dataset, shuffle=shuffle)
     loader = DataLoader if image_weights else InfiniteDataLoader  # only DataLoader allows for attribute updates
+    
     generator = torch.Generator()
     generator.manual_seed(6148914691236517205 + seed + RANK)
     return loader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle and sampler is None,
+        shuffle=shuffle and sampler is None, # disable shuffle when sampler is used
         num_workers=nw,
         sampler=sampler,
         drop_last=quad,
@@ -217,6 +224,78 @@ def create_dataloader(
         generator=generator,
     ), dataset
 
+class ClassBalancedSampler():
+    """
+    A custom sampler that balances classes by assigning higher sampling
+    probabilities to underrepresented classes based on inverse frequency.
+
+    Attributes:
+        sampler (WeightedRandomSampler): The underlying PyTorch sampler.
+        class_counts (Tensor): Counts of each class in the dataset.
+        class_weights (Tensor): Inverse frequency weights per class.
+        sample_weights (Tensor): Per-sample weights used for sampling.
+        sampling_probs (ndarray): Normalized sampling probabilities (for visualization).
+    """
+    def __init__(self, dataset, num_samples=None, replacement=True):
+        """
+        Args:
+            dataset: Dataset object that contains a `.labels` attribute.
+                     Each entry in dataset.labels is a list of labels for that image.
+            num_samples (int, optional): Number of samples per epoch (default: len(dataset)).
+            replacement (bool): Whether to sample with replacement.
+        """
+        self.dataset = dataset
+        self.num_samples = num_samples or len(dataset)
+        self.replacement = replacement
+        
+        # --- 1. Count class occurrences ---
+        num_classes = int(max([max(l[:, 0]) if len(l) > 0 else 0 for l in dataset.labels]) + 1)
+        self.class_counts = torch.zeros(num_classes)
+        for labels in dataset.labels:
+            for label in labels:
+                class_id = int(label[0])
+                self.class_counts[class_id] += 1
+        
+         # --- 2. Compute inverse-frequency class weights ---
+        self.class_weights = 1.0 / torch.clamp(self.class_counts, min=1)  # avoid division by 0
+                
+        # --- 3. Compute per-image weights ---
+        sample_weights = []
+        for labels in dataset.labels:
+            if len(labels) == 0:
+                sample_weights.append(0.0)
+            else:
+                img_weights = [self.class_weights[int(l[0])] for l in labels]
+                sample_weights.append(float(np.mean(img_weights)))
+        # self.sample_weights = torch.DoubleTensor(sample_weights)
+        
+        # --- 4. Normalize to probabilities (for visualization only) ---
+        # self.sampling_probs = (self.sample_weights / self.sample_weights.sum()).numpy()
+        
+        # --- 5. Create the underlying WeightedRandomSampler ---
+        self.sampler = WeightedRandomSampler(
+            weights=self.sample_weights,
+            num_samples=self.num_samples,
+            replacement=self.replacement
+        )
+        
+    def __iter__(self):
+        """Return an iterator over indices according to the internal sampler."""
+        return iter(self.sampler)
+
+    def __len__(self):
+        """Return the number of samples."""
+        return self.num_samples
+
+    # def plot_sampling_distribution(self):
+    #     """Optional helper to visualize sampling probabilities."""
+    #     import matplotlib.pyplot as plt
+    #     plt.figure(figsize=(10, 3))
+    #     plt.bar(range(len(self.sampling_probs)), self.sampling_probs)
+    #     plt.title("Sampling Probability per Image")
+    #     plt.xlabel("Image Index")
+    #     plt.ylabel("Probability")
+    #     plt.show()
 
 class InfiniteDataLoader(dataloader.DataLoader):
     """

@@ -1,0 +1,8 @@
+path: ../
+train: yolo_dataset_version_2/images/train/
+val: yolo_dataset_version_2/images/val/
+test: yolo_dataset_version_2/images/test/
+
+names:
+  0: cluster
+  1: Thyrocyte

@@ -114,10 +114,14 @@ class ComputeLoss:
         device = next(model.parameters()).device  # get model device
         h = model.hyp  # hyperparameters
         
-        weight=torch.tensor([0.5, 0.1], device=device)
+        cls_pw_value = h["cls_pw"]
+        if isinstance(cls_pw_value, (int, float)):  # single scalar
+            cls_pw_tensor = torch.tensor([cls_pw_value], device=device)
+        else:  # assume it's a list, tuple, or numpy array
+            cls_pw_tensor = torch.tensor(cls_pw_value, device=device, dtype=torch.float)
         
         # Define criteria
-        BCEcls = nn.BCEWithLogitsLoss(pos_weight=weight)
+        BCEcls = nn.BCEWithLogitsLoss(pos_weight=cls_pw_tensor)
         BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h["obj_pw"]], device=device))
 
         # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3

@@ -71,7 +71,8 @@ if __name__ == "__main__":
         single_cls=False
     )
     num_classes = int(max([max(l[:, 0]) if len(l) > 0 else 0 for l in dataset.labels]) + 1)
-    
+    print("Number of data samples:", len(dataset))
+    N = len(dataset)
     class_counts = torch.zeros(num_classes)
     for labels in dataset.labels:
         for label in labels:
@@ -83,9 +84,14 @@ if __name__ == "__main__":
     # Inverse frequency weights per class
     class_weights = 1.0 / torch.clamp(class_counts, min=1)
     print("Class weights:", class_weights)
+    
+    # Normalized Inverse frequency weights per class
+    norm_class_weights = N / torch.clamp((num_classes * class_counts), min=1)
+    print("Normalized Inverse Frequency:", norm_class_weights)
 
     # Assign each image a weight based on its labels
     sample_weights = []
+    norm_sample_weights = []
     for labels in dataset.labels:
         if len(labels) == 0:
             sample_weights.append(0)  # no labels (background)
@@ -93,22 +99,35 @@ if __name__ == "__main__":
             
             # average of label weights for that image
             img_weight = []
+            norm_img_weight = []
             for l in labels:
                 # print(l)
                 img_weight.append(class_weights[int(l[0])])
+                norm_img_weight.append(norm_class_weights[int(l[0])])
                 
             sample_weights.append(np.mean(img_weight))
-            
+            norm_sample_weights.append(np.mean(norm_img_weight))
+
+    
     # Compute sampling probabilities
     sample_weights_np = np.array(sample_weights)
     sampling_probs = sample_weights_np / sample_weights_np.sum()
+    norm_sample_weights_np = np.array(norm_sample_weights)
+    norm_sampling_probs = norm_sample_weights_np / norm_sample_weights_np.sum()
 
-    # plt.figure(figsize=(8, 3))
-    # plt.bar(range(len(sampling_probs)), sampling_probs)
-    # plt.title("Sampling Probability per Image")
-    # plt.xlabel("Image Index")
-    # plt.ylabel("Probability")
-    # plt.show()
+    plt.figure(figsize=(8, 3))
+    plt.bar(range(len(sampling_probs)), sampling_probs)
+    plt.title("Sampling Probability per Image")
+    plt.xlabel("Image Index")
+    plt.ylabel("Probability")
+    plt.show()
+    
+    plt.figure(figsize=(8, 3))
+    plt.bar(range(len(norm_sampling_probs)), norm_sampling_probs)
+    plt.title("Normalized Sampling Probability per Image")
+    plt.xlabel("Image Index")
+    plt.ylabel("Probability")
+    plt.show()
     # # sample_weights = torch.DoubleTensor(sample_weights)
     
     # sampler = WeightedRandomSampler(

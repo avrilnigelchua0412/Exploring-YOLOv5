@@ -215,7 +215,7 @@ if __name__ == '__main__':
     inference_model.set_non_max_suppression(conf_thres=0.2, iou_thres=0.2)
     preds, train_out = inference_model.get_non_max_suppression()
     img = inference_model.get_image()
-    
+    img_h, img_w = img.shape[:2]  # height, width of original full image
     for i, p in enumerate(preds):
         x0 = tile_metadata[i]['x0']
         y0 = tile_metadata[i]['y0']
@@ -228,35 +228,63 @@ if __name__ == '__main__':
         for det in p:   # loop through ALL predictions in the tile
             x1, y1, x2, y2, conf, cls = det
             
-            global_box = [
-                x1 + x0,
-                y1 + y0,
-                x2 + x0,
-                y2 + y0
+            # global_box = [
+            #     x1 + x0,
+            #     y1 + y0,
+            #     x2 + x0,
+            #     y2 + y0
+            # ]
+            global_box_normalized = [
+                (x1 + x0) / img_w,
+                (y1 + y0) / img_h,
+                (x2 + x0) / img_w,
+                (y2 + y0) / img_h
             ]
-
             # print("Boxes:", global_box)
             # print("Scores:", conf)
             # print("Labels:", cls)
             # print("-----")
 
-            BOXES_LIST.append(global_box)
-            SCORES_LIST.append(conf)
-            LABELS_LIST.append(cls)
+            BOXES_LIST.append(global_box_normalized)
+            SCORES_LIST.append(float(conf))
+            LABELS_LIST.append(int(cls))
             
     print("Total boxes before fusion:", len(BOXES_LIST))
-    print("Boxes:", BOXES_LIST)
-    print("Scores:", SCORES_LIST)
-    print("Labels:", LABELS_LIST)
+    print("Performing Weighted Box Fusion...")
+    # WBF expects lists of lists:
+    boxes_list  = [BOXES_LIST]        # pixel coords okay
+    scores_list = [SCORES_LIST]
+    labels_list = [LABELS_LIST]
+    print("Boxes List Sample:", boxes_list[0][:5])
+    print("Scores List Sample:", scores_list[0][:5])
+    print("Labels List Sample:", labels_list[0][:5])
+
+    wbf_boxes, wbf_scores, wbf_labels = weighted_boxes_fusion(
+        boxes_list,
+        scores_list,
+        labels_list,
+        iou_thr=0.5,
+        skip_box_thr=0.001
+    )
     
-    # boxes, scores, labels = weighted_boxes_fusion([BOXES_LIST], [SCORES_LIST], [LABELS_LIST])
+    boxes, scores, labels = weighted_boxes_fusion([BOXES_LIST], [SCORES_LIST], [LABELS_LIST])
+    
+    denormalized_boxes = []
+    for box in boxes:
+        fused_box_pixel = [
+            box[0] * img_w,
+            box[1] * img_h,
+            box[2] * img_w,
+            box[3] * img_h
+        ]
+        denormalized_boxes.append(fused_box_pixel)
     
     fig, ax = plt.subplots(1, figsize=(15, 15))
     ax.imshow(img) 
-    visualize_bboxes([BOXES_LIST], [SCORES_LIST], [LABELS_LIST], ax)  # ax should be a valid Matplotlib axis
-    plt.savefig("inference_result.png")
+    visualize_bboxes([denormalized_boxes], [scores], [labels], ax)  # ax should be a valid Matplotlib axis
+    plt.savefig("test.png")
     
-    # print("Fused Boxes:", boxes)
-    # print("Fused Scores:", scores)
-    # print("Fused Labels:", labels)
+    print("Fused Boxes:", denormalized_boxes)
+    print("Fused Scores:", scores)
+    print("Fused Labels:", labels)
     print("Inference completed.")

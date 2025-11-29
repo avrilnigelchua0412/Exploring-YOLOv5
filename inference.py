@@ -161,130 +161,102 @@ def visualize_bboxes(bboxes, scores, labels, ax):
         x_min, y_min = x1, y1
         box_width = x2 - x1
         box_height = y2 - y1
+        color = "black"  if label == 0 else "red"
+        linewidth = 3 if label == 0 else .25
+        fontsize = 15 if label == 0 else 2
         ax.add_patch(plt.Rectangle(
-            (x_min, y_min), box_width, box_height, linewidth=3,
-            edgecolor="blue", facecolor="none"
+            (x_min, y_min), box_width, box_height, linewidth=linewidth,
+            edgecolor=color, facecolor="none"
         ))
         ax.text(
-            x_min, y_min - 5, f"{label}: with {score:.2f}", color="red",
-            fontsize=10, weight="bold"
+            x_min, y_min - 5, f"{label}: with {score:.2f}", color=color,
+            fontsize=fontsize, weight="bold"
         )
 
+def normalize_box(box, img_w, img_h):
+    x1, y1, x2, y2 = box
+    return [
+            (x1) / img_w,
+            (y1) / img_h,
+            (x2) / img_w,
+            (y2) / img_h
+        ]
+
+def denormalize_box(box, img_w, img_h):
+    x1, y1, x2, y2 = box
+    return [
+            x1 * img_w,
+            y1 * img_h,
+            x2 * img_w,
+            y2 * img_h
+        ]
+
 if __name__ == '__main__':
-    
-    """
-    Image tiling example usage.
-    
-    """
-    # rgb_image = get_image_data('/workspace/Special_Problem/Data/BATCH 1/LS-052.jpeg')
-    # print("Original image shape:", rgb_image.shape)
-    
-    # for tile, x0, y0, tile_id in image_tiling(rgb_image):
-    #     print(f"Tile ID: {tile_id}, Position: ({x0}, {y0}), Tile shape: {tile.shape}")
     
     """
     Inference for YOLOv5 model using DetectMultiBackend.
     
     """
     print("Starting inference...")
-    # MODEL_PATH = '/workspace/Special_Problem/Exploring-YOLOv5/runs/train/initial_cluster_model/weights/best.pt'
-    # MODEL_PATH = '/workspace/Special_Problem/Exploring-YOLOv5/runs/train/fourth_cluster_model_40overlap/weights/best.pt'
-    # MODEL_PATH = '/workspace/Special_Problem/Exploring-YOLOv5/runs/train/third_cluster_model_35overlap/weights/best.pt'
-    # MODEL_PATH = '/workspace/Special_Problem/Exploring-YOLOv5/runs/train/second_cluster_model_30overlap/weights/best.pt'
-    MODEL_PATH = '/workspace/Special_Problem/third_training_report/weights/best.pt'
-    IMG_PATH = '/workspace/Special_Problem/Data/BATCH 1/LS-019.jpg'
-    
-    BOXES_LIST = []
-    SCORES_LIST = []
-    LABELS_LIST = []
-    
-    inference_model = InferenceModel(MODEL_PATH, IMG_PATH)
-    inference_model.populate_image_tile_metadata()
-    tiles = inference_model.get_tiles()
-    
-    print(f"Total tiles generated: {tiles.shape[0]}")
-    print("Tiles tensor device:", tiles.device)
-    print(tiles.shape)
-    
-    tile_metadata = inference_model.get_image_tile_metadata()
-    print(f"Total tiles generated: {len(tile_metadata)}")
-    # for tile_info in tile_metadata:
-    #     print(f"Processing tile ID: {tile_info['tile_id']} at position ({tile_info['x0']}, {tile_info['y0']})")
-    
-    inference_model.predict()
-    inference_model.set_non_max_suppression(conf_thres=0.2, iou_thres=0.2)
-    preds, train_out = inference_model.get_non_max_suppression()
-    img = inference_model.get_image()
-    img_h, img_w = img.shape[:2]  # height, width of original full image
-    for i, p in enumerate(preds):
-        x0 = tile_metadata[i]['x0']
-        y0 = tile_metadata[i]['y0']
+    # MODEL_PATH = '/workspace/Special_Problem/initial_training_report/weights/best.pt'
+    # MODEL_PATH = '/workspace/Special_Problem/second_training_report/manual augment/weights/best.pt'
+    # MODEL_PATH = '/workspace/Special_Problem/third_training_report/weights/best.pt'
+    # MODEL_PATH = '/workspace/Special_Problem/fourth_training_report/model4-ft-model2-100epch/weights/best.pt'
+    MODEL_PATH = '/workspace/Special_Problem/fifth_training_report/initial_thyrocyte_model/weights/best.pt'
+    IMG_PATHS = ['/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-003.jpg',
+                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-018.jpeg',
+                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-025.jpg',
+                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-034.jpg',
+                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-049.jpeg']
+    MODEL_NAME = MODEL_PATH.split('/')[3]
+    for INDEX, IMG_PATH in enumerate(IMG_PATHS):
+        BOXES_LIST = []
+        SCORES_LIST = []
+        LABELS_LIST = []
+        
+        inference_model = InferenceModel(MODEL_PATH, IMG_PATH)
+        inference_model.populate_image_tile_metadata()
+        tiles = inference_model.get_tiles()
+        
+        tile_metadata = inference_model.get_image_tile_metadata()
+        
+        inference_model.predict()
+        inference_model.set_non_max_suppression(conf_thres=0.2, iou_thres=0.2)
+        preds, train_out = inference_model.get_non_max_suppression()
+        img = inference_model.get_image()
+        
+        img_h, img_w = img.shape[:2]
+        for i, p in enumerate(preds):
+            x0 = tile_metadata[i]['x0']
+            y0 = tile_metadata[i]['y0']
 
-        if p is None or len(p) == 0:
-            continue
+            if p is None or len(p) == 0:
+                continue
 
-        p = p.cpu().numpy()
+            p = p.cpu().numpy()
 
-        for det in p:   # loop through ALL predictions in the tile
-            x1, y1, x2, y2, conf, cls = det
-            
-            # global_box = [
-            #     x1 + x0,
-            #     y1 + y0,
-            #     x2 + x0,
-            #     y2 + y0
-            # ]
-            global_box_normalized = [
-                (x1 + x0) / img_w,
-                (y1 + y0) / img_h,
-                (x2 + x0) / img_w,
-                (y2 + y0) / img_h
-            ]
-            # print("Boxes:", global_box)
-            # print("Scores:", conf)
-            # print("Labels:", cls)
-            # print("-----")
+            for det in p:
+                x1, y1, x2, y2, conf, cls = det
+                global_box_normalized = normalize_box(
+                    (x1 + x0, y1 + y0, x2 + x0, y2 + y0),
+                    img_w,
+                    img_h
+                )
 
-            BOXES_LIST.append(global_box_normalized)
-            SCORES_LIST.append(float(conf))
-            LABELS_LIST.append(int(cls))
-            
-    print("Total boxes before fusion:", len(BOXES_LIST))
-    print("Performing Weighted Box Fusion...")
-    # WBF expects lists of lists:
-    boxes_list  = [BOXES_LIST]        # pixel coords okay
-    scores_list = [SCORES_LIST]
-    labels_list = [LABELS_LIST]
-    print("Boxes List Sample:", boxes_list[0][:5])
-    print("Scores List Sample:", scores_list[0][:5])
-    print("Labels List Sample:", labels_list[0][:5])
-
-    wbf_boxes, wbf_scores, wbf_labels = weighted_boxes_fusion(
-        boxes_list,
-        scores_list,
-        labels_list,
-        iou_thr=0.5,
-        skip_box_thr=0.001
-    )
-    
-    boxes, scores, labels = weighted_boxes_fusion([BOXES_LIST], [SCORES_LIST], [LABELS_LIST])
-    
-    denormalized_boxes = []
-    for box in boxes:
-        fused_box_pixel = [
-            box[0] * img_w,
-            box[1] * img_h,
-            box[2] * img_w,
-            box[3] * img_h
-        ]
-        denormalized_boxes.append(fused_box_pixel)
-    
-    fig, ax = plt.subplots(1, figsize=(15, 15))
-    ax.imshow(img) 
-    visualize_bboxes([denormalized_boxes], [scores], [labels], ax)  # ax should be a valid Matplotlib axis
-    plt.savefig("test.png")
-    
-    print("Fused Boxes:", denormalized_boxes)
-    print("Fused Scores:", scores)
-    print("Fused Labels:", labels)
-    print("Inference completed.")
+                BOXES_LIST.append(global_box_normalized)
+                SCORES_LIST.append(float(conf))
+                LABELS_LIST.append(int(cls))
+        
+        boxes, scores, labels = weighted_boxes_fusion([BOXES_LIST], [SCORES_LIST], [LABELS_LIST], 
+            iou_thr=0.55,
+            skip_box_thr=0.45)
+        
+        denormalized_boxes = []
+        for box in boxes:
+            fused_box_pixel = denormalize_box(box, img_w, img_h)
+            denormalized_boxes.append(fused_box_pixel)
+        
+        fig, ax = plt.subplots(1, figsize=(15, 15))
+        ax.imshow(img) 
+        visualize_bboxes([denormalized_boxes], [scores], [labels], ax) 
+        plt.savefig(f"{MODEL_NAME}-{INDEX}.png")

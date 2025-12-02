@@ -161,9 +161,9 @@ def visualize_bboxes(bboxes, scores, labels, ax):
         x_min, y_min = x1, y1
         box_width = x2 - x1
         box_height = y2 - y1
-        color = "black"  if label == 0 else "red"
-        linewidth = 3 if label == 0 else .25
-        fontsize = 15 if label == 0 else 2
+        color = ""  if label == 0 else "black"
+        linewidth = .5 if label == 0 else 2
+        fontsize = 5 if label == 0 else 8
         ax.add_patch(plt.Rectangle(
             (x_min, y_min), box_width, box_height, linewidth=linewidth,
             edgecolor=color, facecolor="none"
@@ -198,16 +198,14 @@ if __name__ == '__main__':
     
     """
     print("Starting inference...")
-    # MODEL_PATH = '/workspace/Special_Problem/initial_training_report/weights/best.pt'
-    # MODEL_PATH = '/workspace/Special_Problem/second_training_report/manual augment/weights/best.pt'
-    # MODEL_PATH = '/workspace/Special_Problem/third_training_report/weights/best.pt'
-    # MODEL_PATH = '/workspace/Special_Problem/fourth_training_report/model4-ft-model2-100epch/weights/best.pt'
-    MODEL_PATH = '/workspace/Special_Problem/fifth_training_report/initial_thyrocyte_model/weights/best.pt'
-    IMG_PATHS = ['/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-003.jpg',
-                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-018.jpeg',
-                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-025.jpg',
-                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-034.jpg',
-                '/workspace/Special_Problem/yolo_dataset_version_1/images/test/original_LS-049.jpeg']
+    MODEL_PATH = 'Exploring-YOLOv5/runs/train/thyro_finetune_phase1/weights/best.pt'
+    IMG_PATHS = [
+                'Data/BATCH 1/LS-009.jpeg',
+                'Data/BATCH 1/LS-018.jpeg',
+                'Data/BATCH 1/LS-025.jpg',
+                'Data/BATCH 1/LS-032.jpeg',
+                'Data/BATCH 1/LS-049.jpeg'
+                ]
     MODEL_NAME = MODEL_PATH.split('/')[3]
     for INDEX, IMG_PATH in enumerate(IMG_PATHS):
         BOXES_LIST = []
@@ -249,7 +247,7 @@ if __name__ == '__main__':
         
         boxes, scores, labels = weighted_boxes_fusion([BOXES_LIST], [SCORES_LIST], [LABELS_LIST], 
             iou_thr=0.55,
-            skip_box_thr=0.45)
+            skip_box_thr=0.6)
         
         denormalized_boxes = []
         for box in boxes:

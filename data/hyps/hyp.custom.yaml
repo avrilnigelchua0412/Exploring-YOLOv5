@@ -1,9 +1,10 @@
-lr0: 0.01
-lrf: 0.01
+lr0: 0.0025
+lrf: 0.2
 momentum: 0.937
-weight_decay: 0.0005
-warmup_epochs: 3.0
-warmup_momentum: 0.8
+weight_decay: 0.0012
+
+warmup_epochs: 5.0
+warmup_momentum: 0.8 
 warmup_bias_lr: 0.1
 
 box: 0.05
@@ -14,6 +15,7 @@ cls_pw: 1.0 # cls BCELoss positive_weight
 
 obj: 1.0
 obj_pw: 1.0
+
 iou_t: 0.2
 anchor_t: 4.0
 fl_gamma: 1.0
@@ -29,6 +31,6 @@ shear: 0.0
 perspective: 0.0
 flipud: 0.0
 fliplr: 0.0
-mosaic: 0.0
-mixup: 0.0
+mosaic: 1.0
+mixup: 0.05
 copy_paste: 0.0

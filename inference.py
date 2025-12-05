@@ -161,9 +161,9 @@ def visualize_bboxes(bboxes, scores, labels, ax):
         x_min, y_min = x1, y1
         box_width = x2 - x1
         box_height = y2 - y1
-        color = ""  if label == 0 else "black"
-        linewidth = .5 if label == 0 else 2
-        fontsize = 5 if label == 0 else 8
+        color = "black"  if label == 0 else "red"
+        linewidth = 2
+        fontsize = 8
         ax.add_patch(plt.Rectangle(
             (x_min, y_min), box_width, box_height, linewidth=linewidth,
             edgecolor=color, facecolor="none"
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     
     """
     print("Starting inference...")
-    MODEL_PATH = 'Exploring-YOLOv5/runs/train/thyro_finetune_phase1/weights/best.pt'
+    MODEL_PATH = 'Exploring-YOLOv5/runs/train/thyro_finetune_phase2/weights/best.pt'
     IMG_PATHS = [
                 'Data/BATCH 1/LS-009.jpeg',
                 'Data/BATCH 1/LS-018.jpeg',
